@@ -1,0 +1,23 @@
+# Android Studio y archivos generados
+.gradle/
+.idea/
+.kotlin/
+**/build/
+local.properties
+*.iml
+*.apk
+*.aab
+*.log
+
+# Configuración local de Firebase y credenciales
+app/google-services.json
+*service-account*.json
+*serviceAccount*.json
+*.jks
+*.keystore
+.env
+.env.*
+
+# Pruebas locales
+node_modules/
+.firebase/

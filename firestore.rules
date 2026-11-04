@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function owner(uid) { return signedIn() && request.auth.uid == uid; }
+    function supervisor() {
+      return signedIn() &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'SUPERVISOR';
+    }
+    function canReadProfile(data) {
+      return supervisor() && data.rol == 'TRABAJADOR' && data.supervisorUid == request.auth.uid;
+    }
+    function canReadWorker(uid) {
+      return owner(uid) || canReadProfile(get(/databases/$(database)/documents/usuarios/$(uid)).data);
+    }
+    function validReading(d) {
+      return d.keys().hasAll(['temperaturaAmbiente', 'temperaturaEstimada', 'humedad', 'uv', 'actividad', 'exposicionMin', 'aSalvo', 'riesgo', 'origen', 'lecturaId', 'fecha']) &&
+        d.keys().hasOnly(['temperaturaAmbiente', 'temperaturaEstimada', 'humedad', 'uv', 'actividad', 'exposicionMin', 'aSalvo', 'riesgo', 'origen', 'lecturaId', 'fecha']) &&
+        d.temperaturaAmbiente is number && d.temperaturaAmbiente >= -40 && d.temperaturaAmbiente <= 100 &&
+        d.temperaturaEstimada is number && d.temperaturaEstimada >= -40 && d.temperaturaEstimada <= 120 &&
+        d.humedad is int && d.humedad >= 0 && d.humedad <= 100 &&
+        d.uv is int && d.uv >= 0 && d.uv <= 30 &&
+        d.actividad in ['REPOSO', 'MODERADA', 'INTENSA'] &&
+        d.exposicionMin is int && d.exposicionMin >= 0 && d.exposicionMin <= 1440 &&
+        d.aSalvo is bool && d.riesgo in ['BAJO', 'MEDIO', 'ALTO', 'CRITICO'] &&
+        d.origen == 'SIMULADO' && d.lecturaId is string && d.fecha == request.time;
+    }
+    match /usuarios/{uid} {
+      allow get: if owner(uid) || canReadProfile(resource.data);
+      allow list: if canReadProfile(resource.data);
+      allow create: if owner(uid) &&
+        request.resource.data.keys().hasAll(['uid', 'rut', 'nombre', 'correo', 'rol', 'supervisorUid', 'zona', 'cargo', 'creadoEn']) &&
+        request.resource.data.keys().hasOnly(['uid', 'rut', 'nombre', 'correo', 'rol', 'supervisorUid', 'zona', 'cargo', 'creadoEn']) &&
+        request.resource.data.uid == uid &&
+        request.resource.data.rut is string && request.resource.data.rut.size() <= 12 &&
+        request.resource.data.nombre is string && request.resource.data.nombre.size() <= 100 &&
+        request.resource.data.correo == request.auth.token.email &&
+        request.resource.data.rol == 'TRABAJADOR' &&
+        request.resource.data.supervisorUid == '' &&
+        request.resource.data.zona == 'Sin asignar' && request.resource.data.cargo == 'Trabajador' &&
+        request.resource.data.creadoEn == request.time;
+      // Roles y asignaciones solo se administran desde la consola/Admin SDK.
+      allow update, delete: if false;
+      match /historial/{lecturaId} {
+        allow read: if canReadWorker(uid);
+        allow create: if owner(uid) &&
+          get(/databases/$(database)/documents/usuarios/$(uid)).data.rol == 'TRABAJADOR' &&
+          request.resource.data.lecturaId == lecturaId && validReading(request.resource.data);
+        allow update, delete: if false;
+      }
+    }
+  }
+}

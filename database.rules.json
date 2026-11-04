@@ -1,0 +1,31 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "permisos": {
+      "$workerUid": {
+        ".read": false,
+        ".write": false
+      }
+    },
+    "lecturasActuales": {
+      "$workerUid": {
+        ".read": "auth != null && (auth.uid === $workerUid || root.child('permisos').child($workerUid).child('supervisorUid').val() === auth.uid)",
+        ".write": "auth != null && auth.uid === $workerUid && newData.exists()",
+        ".validate": "newData.hasChildren(['temperaturaAmbiente', 'temperaturaEstimada', 'humedad', 'uv', 'actividad', 'exposicionMin', 'aSalvo', 'riesgo', 'origen', 'lecturaId', 'actualizadoEn'])",
+        "temperaturaAmbiente": { ".validate": "newData.isNumber() && newData.val() >= -40 && newData.val() <= 100" },
+        "temperaturaEstimada": { ".validate": "newData.isNumber() && newData.val() >= -40 && newData.val() <= 120" },
+        "humedad": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100 && newData.val() % 1 === 0" },
+        "uv": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 30 && newData.val() % 1 === 0" },
+        "actividad": { ".validate": "newData.val() === 'REPOSO' || newData.val() === 'MODERADA' || newData.val() === 'INTENSA'" },
+        "exposicionMin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1440 && newData.val() % 1 === 0" },
+        "aSalvo": { ".validate": "newData.isBoolean()" },
+        "riesgo": { ".validate": "newData.val() === 'BAJO' || newData.val() === 'MEDIO' || newData.val() === 'ALTO' || newData.val() === 'CRITICO'" },
+        "origen": { ".validate": "newData.val() === 'SIMULADO'" },
+        "lecturaId": { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "actualizadoEn": { ".validate": "newData.isNumber() && newData.val() === now" },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
